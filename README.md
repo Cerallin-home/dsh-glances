@@ -53,8 +53,9 @@ node lib/cli.js --check    # 阈值体检，超线退出码 1
   （所以换容器挂载也不用改代码，配置里改 `mountPrefix` 即可）。
 - **CPU 百分比要挑有效采样窗**：glances 的百分比是"上次采样到这次"的差值。隔久了第一次
   全是 0，两次请求挨太近又会给出 `total=50 / user=0` 这种自相矛盾的窗口。插件检查
-  `idle+user+system+iowait ≈ 100`，不成立就改用本机 `/proc/stat` 采 150ms 现算
-  （字段口径一致，`source` 会标 `proc`），不报假数、也不为等 glances 的窗口卡几秒。
+  `idle+user+system+iowait ≈ 100`，不成立就改用本机 `os.cpus()` 采 400ms 现算
+  （字段口径一致，`source` 标 `proc`，输出里会显示「·本机采样」），不报假数、
+  也不为等 glances 的窗口卡几秒。
 - **swap 常驻**：这台机器 swap 长年在 60% 上下，默认告警线设 85%，别往低调。
 
 ## 测试
