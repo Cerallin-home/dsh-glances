@@ -6,6 +6,7 @@
         baseUrl: http://127.0.0.1:61208/api/4
         timeoutMs: 4000
         diskPaths: ['/']
+        mountPrefix: /nvme0n1
         cpuPercent: 85
         memPercent: 85
         swapPercent: 85
