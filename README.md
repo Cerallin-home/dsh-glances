@@ -24,7 +24,8 @@ dsh plugin --profile <name> add link:/path/to/dsh-glances
 | --- | --- | --- |
 | `baseUrl` | `http://127.0.0.1:61208/api/4` | glances REST 根地址 |
 | `timeoutMs` | `4000` | 单次请求超时 |
-| `diskPaths` | `['/']` | 用 statfs 量占用的路径，同分区只报一次 |
+| `diskPaths` | `['/']` | glances 看不见时用 statfs 兜底的路径 |
+| `mountPrefix` | `/nvme0n1` | 容器里宿主 `/` 的挂载前缀，剥掉后就是宿主机路径 |
 | `cpuPercent` | `85` | CPU 告警线 |
 | `memPercent` | `85` | 内存告警线 |
 | `swapPercent` | `85` | swap 告警线（这台机器 swap 常驻 60% 上下，别设太低） |
@@ -43,14 +44,18 @@ node lib/cli.js --json     # 结构化数据
 node lib/cli.js --check    # 阈值体检，超线退出码 1
 ```
 
-## 两个实现细节（踩过的坑）
+## 三个实现细节（踩过的坑）
 
-- **磁盘不用 glances**：glances 跑在 docker 里，`/api/4/fs` 只看得见容器自己的
-  `/etc/resolv.conf` 这类挂载，宿主机的 `/` 根本不在里面。所以磁盘占用由插件进程
-  自己 `statfs`（dsh 就跑在这台机器上），glances 的 fs 结果只在看得见真实挂载点时补充。
+- **磁盘口径**：glances 跑在 docker 里，宿主 `/` 是 bind 到容器 `/nvme0n1` 的。
+  插件把 `mountPrefix`（默认 `/nvme0n1`）从挂载点前缀剥掉，`/nvme0n1` → `/`、
+  `/nvme0n1/boot/firmware` → `/boot/firmware`，同一设备只留最短路径，容器自己的
+  `/etc/resolv.conf` 之类整条丢掉。glances 看不到的 `diskPaths` 再用 `statfs` 兜底
+  （所以换容器挂载也不用改代码，配置里改 `mountPrefix` 即可）。
 - **CPU 百分比要挑有效采样窗**：glances 的百分比是"上次采样到这次"的差值。隔久了第一次
-  全是 0，两次请求挨太近又会给出 `total=50 / user=0` 这种自相矛盾的窗口。插件会检查
-  `idle+user+system+iowait ≈ 100`，不成立就重试（最多 4 次），拿不到就报 0 而不是报假数。
+  全是 0，两次请求挨太近又会给出 `total=50 / user=0` 这种自相矛盾的窗口。插件检查
+  `idle+user+system+iowait ≈ 100`，不成立就改用本机 `/proc/stat` 采 150ms 现算
+  （字段口径一致，`source` 会标 `proc`），不报假数、也不为等 glances 的窗口卡几秒。
+- **swap 常驻**：这台机器 swap 长年在 60% 上下，默认告警线设 85%，别往低调。
 
 ## 测试
 
