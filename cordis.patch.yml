@@ -1,0 +1,14 @@
+# dsh-glances — 树莓派整机监控（glances REST API，工具：host_status / host_top / host_alerts）
+- insert:
+    - id: dsh-glances
+      name: 'dsh-glances'
+      config:
+        baseUrl: http://127.0.0.1:61208/api/4
+        timeoutMs: 4000
+        diskPaths: ['/']
+        cpuPercent: 85
+        memPercent: 85
+        swapPercent: 85
+        diskPercent: 90
+        tempCelsius: 78
+        loadPerCore: 1.5
