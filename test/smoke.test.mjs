@@ -8,6 +8,7 @@ import {
   collectStatus,
   collectTop,
   evaluateAlerts,
+  readMounts,
   renderStatus,
   DEFAULT_THRESHOLDS,
 } from '../lib/glances.js';
@@ -35,6 +36,17 @@ test('host status 有 cpu/内存/负载/磁盘/温度', opts, async () => {
   assert.ok(s.mem.percent >= 0 && s.mem.percent <= 100, 'mem percent');
   assert.ok(s.disks.length >= 1, 'disks');
   assert.ok(s.disks[0].percent > 0 && s.disks[0].sizeGb > 0, 'disk numbers');
+  for (const d of s.disks) {
+    assert.equal(typeof d.fstype, 'string', `${d.path} fstype`);
+    assert.ok(d.fstype.length > 0, `${d.path} fstype 不能空`);
+    assert.equal(typeof d.readOnly, 'boolean', `${d.path} readOnly`);
+  }
+  const boot = s.disks.find((d) => d.path === '/boot/firmware');
+  if (boot) {
+    const m = readMounts().get('/boot/firmware');
+    assert.equal(boot.fstype, 'vfat', '/boot/firmware 是 vfat');
+    assert.equal(boot.readOnly, Boolean(m?.readOnly), '/boot/firmware 只读标志跟挂载表一致');
+  }
   assert.ok(s.cpuTemp && s.cpuTemp.celsius > 0, 'cpu temp');
   const text = renderStatus(s);
   assert.match(text, /CPU \d/);

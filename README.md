@@ -51,6 +51,11 @@ node lib/cli.js --check    # 阈值体检，超线退出码 1
   `/nvme0n1/boot/firmware` → `/boot/firmware`，同一设备只留最短路径，容器自己的
   `/etc/resolv.conf` 之类整条丢掉。glances 看不到的 `diskPaths` 再用 `statfs` 兜底
   （所以换容器挂载也不用改代码，配置里改 `mountPrefix` 即可）。
+- **fstype / readOnly 看宿主挂载表**：每条磁盘带 `fstype`（vfat / ext4 / overlay / tmpfs 原样给）和
+  `readOnly`。fstype 优先取 glances 的 `fs_type`（没有就 `unknown`），只读标志只能看宿主自己的
+  `/proc/self/mounts` —— glances 在容器里，`options` 是容器 bind mount 的，宿主 `/` 明明是 `rw`
+  它却报 `ro`，照抄会把根分区判成只读。查不到挂载点时给 `unknown` / `false`，不丢条目。
+  只读分区不会进 `host_alerts` 的磁盘告警（空间不会涨）。
 - **CPU 百分比要挑有效采样窗**：glances 的百分比是"上次采样到这次"的差值。隔久了第一次
   全是 0，两次请求挨太近又会给出 `total=50 / user=0` 这种自相矛盾的窗口。插件检查
   `idle+user+system+iowait ≈ 100`，不成立就改用本机 `os.cpus()` 采 400ms 现算
