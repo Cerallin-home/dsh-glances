@@ -11,6 +11,6 @@
         cpuPercent: 85
         memPercent: 85
         swapPercent: 85
-        diskPercent: 90
+        diskPercent: 85
         tempCelsius: 78
         loadPerCore: 1.5
