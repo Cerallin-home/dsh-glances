@@ -5,7 +5,7 @@
       config:
         baseUrl: http://127.0.0.1:61208/api/4
         timeoutMs: 4000
-        diskPaths: ['/']
+        diskPaths: ['/', '/boot/firmware']
         mountPrefix: /nvme0n1
         includeGlancesAlerts: false
         cpuPercent: 85
