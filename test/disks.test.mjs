@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import {
   annotateDisks,
   evaluateAlerts,
+  isFirmwarePartition,
   parseMounts,
   readMounts,
   renderStatus,
@@ -73,7 +74,18 @@ test('mountTable 缺省（空表）不炸', () => {
   assert.equal(d.readOnly, false);
 });
 
-test('只读分区不进 warnings', () => {
+test('固件分区按 fstype + /boot 前缀认，不认设备名', () => {
+  assert.equal(isFirmwarePartition({ path: '/boot/firmware', fstype: 'vfat' }), true);
+  assert.equal(isFirmwarePartition({ path: '/boot/efi', fstype: 'vfat' }), true);
+  assert.equal(isFirmwarePartition({ path: '/boot', fstype: 'msdos' }), true);
+  assert.equal(isFirmwarePartition({ path: '/boot', fstype: 'VFAT' }), true, 'fstype 大小写不敏感');
+  assert.equal(isFirmwarePartition({ path: '/snap/firefox/9170', fstype: 'squashfs' }), false);
+  assert.equal(isFirmwarePartition({ path: '/media/usb', fstype: 'vfat' }), false, 'vfat 挂在别处不豁免');
+  assert.equal(isFirmwarePartition({ path: '/boot', fstype: 'ext4' }), false, '非 fat 系 /boot 仍跳过');
+  assert.equal(isFirmwarePartition({ path: '/bootloader', fstype: 'vfat' }), false, '/bootloader 不是 /boot');
+});
+
+test('只读伪文件系统跳过，只读固件分区照常告警', () => {
   const status = {
     cores: 4,
     cpu: { totalPercent: 1 },
@@ -83,14 +95,19 @@ test('只读分区不进 warnings', () => {
     warnings: [],
     disks: [
       { path: '/boot/firmware', percent: 99, readOnly: true, fstype: 'vfat' },
-      { path: '/', percent: 99, readOnly: false, fstype: 'ext4' },
+      { path: '/boot/efi', percent: 95, readOnly: true, fstype: 'vfat' },
+      { path: '/snap/firefox/9170', percent: 100, readOnly: true, fstype: 'squashfs' },
+      { path: '/media/usb', percent: 99, readOnly: true, fstype: 'vfat' },
+      { path: '/mnt/ro-ext4', percent: 99, readOnly: true, fstype: 'ext4' },
+      { path: '/', percent: 15, readOnly: false, fstype: 'ext4' },
     ],
   };
   const v = evaluateAlerts(status, { diskPercent: 90 });
   const diskIssues = v.issues.filter((i) => i.metric === 'disk');
-  assert.equal(diskIssues.length, 1);
-  assert.match(diskIssues[0].text, /磁盘 \/ /);
-  assert.doesNotMatch(diskIssues[0].text, /boot\/firmware/);
+  assert.deepEqual(
+    diskIssues.map((i) => i.text),
+    ['磁盘 /boot/firmware 99%（超过阈值 90%）', '磁盘 /boot/efi 95%（超过阈值 90%）'],
+  );
 });
 
 test('renderStatus 标出 fstype 与只读', () => {
